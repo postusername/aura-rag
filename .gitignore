@@ -4,3 +4,4 @@ __pycache__/
 .DS_Store
 rag-server/data/
 .claude/settings.local.json
+rag-server/config/settings.json

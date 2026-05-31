@@ -57,13 +57,14 @@ async def search(
 ) -> list[dict]:
     client = _get_client()
     name = _collection_name(domain_id)
-    results = await client.search(
+    response = await client.query_points(
         collection_name=name,
-        query_vector=query_vector,
+        query=query_vector,
         limit=limit,
         score_threshold=score_threshold,
         with_payload=True,
     )
+    results = response.points
     return [
         {
             "id": str(r.id),
