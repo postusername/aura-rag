@@ -92,13 +92,23 @@ rag_sync(domain="legal")
 rag_query("What is our data retention policy?")
 ```
 
-### Default domains
+### Starter domain examples
 
 | Domain | Description |
 |--------|-------------|
 | `business-analysis` | Business requirements, strategy, KPIs, roadmaps |
 | `programming` | Code, APIs, architecture, bugs, software development |
 | `hr` | Hiring, onboarding, performance, team culture |
+
+`rag-server/config/settings.json` generates automatically on first start.
+
+For cloud/non-interactive startup, initialize domains via `RAG_INIT_DOMAINS`.
+Examples:
+- `RAG_INIT_DOMAINS=engineering,product,hr`
+- `RAG_INIT_DOMAINS=engineering:Engineering,hr:HR & People`
+
+If `RAG_INIT_DOMAINS` is empty and startup is interactive, server asks for domains in console.
+If startup is non-interactive and variable is empty, config is created with an empty `domains` list.
 
 ## Embedding Providers
 
@@ -141,19 +151,19 @@ docker compose down       # stop all services
 ## Architecture
 
 ```
-kaiten-mcp/        Git submodule — Kaiten API MCP server (Node.js, 61 tools)
-rag-server/        Python RAG MCP server
+kaiten-mcp/           Git submodule — Kaiten API MCP server (Node.js, 61 tools)
+rag-server/           Python RAG MCP server
   src/
-    main.py        MCP server with SSE transport (port 8080)
-    embedder.py    Google AI + Ollama embedding clients
-    vector_store.py Qdrant client wrapper
-    indexer.py     Kaiten document/card fetcher + text chunker
-    classifier.py  Domain classifier (cosine similarity)
+    main.py           MCP server with SSE transport (port 8080)
+    embedder.py       Google AI + Ollama embedding clients
+    vector_store.py   Qdrant client wrapper
+    indexer.py        Kaiten document/card fetcher + text chunker
+    classifier.py     Domain classifier (cosine similarity)
     config_manager.py Domain + embedding config CRUD
   config/
-    settings.json  Domain definitions (modified via MCP tools)
-skills/            Claude Code skill files
-configs/           Setup guides for other AI tools
+    settings.json     Auto-generated on first start (gitignored)
+skills/               Claude Code skill files
+configs/              Setup guides for other AI tools
 ```
 
 ## MCP Tools Reference

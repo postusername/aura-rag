@@ -1,20 +1,134 @@
 import json
 import os
+import re
+import sys
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
 CONFIG_PATH = Path(os.environ.get("RAG_CONFIG_PATH", "/app/config/settings.json"))
 
+DEFAULT_EMBEDDING = {
+    "provider": os.environ.get("RAG_DEFAULT_EMBEDDING_PROVIDER", "google"),
+    "model": os.environ.get("RAG_DEFAULT_EMBEDDING_MODEL", "gemini-embedding-2"),
+    "dimensions": int(os.environ.get("RAG_DEFAULT_EMBEDDING_DIMENSIONS", "768")),
+}
+
+DEFAULT_RETRIEVAL = {
+    "max_results": 5,
+    "min_score": 0.5,
+    "chunk_size_chars": 1500,
+    "chunk_overlap_chars": 200,
+    "include_cards": True,
+}
+
+
+def _to_domain_id(name: str) -> str:
+    slug = re.sub(r"[^a-z0-9]+", "-", name.lower()).strip("-")
+    return slug or "domain"
+
+
+def _to_label(name: str) -> str:
+    return " ".join(part.capitalize() for part in re.split(r"[-_\s]+", name.strip()) if part)
+
+
+def _make_domain(name: str) -> dict:
+    domain_id = _to_domain_id(name)
+    label = _to_label(name)
+    return {
+        "id": domain_id,
+        "label": label,
+        "description": f"Knowledge and documents related to {label.lower()}",
+        "kaiten": {
+            "space_ids": [],
+            "document_group_ids": [],
+            "card_board_ids": [],
+        },
+        "synced_at": None,
+        "doc_count": 0,
+    }
+
+
+def _build_domains_from_env() -> list[dict]:
+    raw = os.environ.get("RAG_INIT_DOMAINS", "").strip()
+    if not raw:
+        return []
+    # Format: "engineering:Engineering,hr:HR & People" or "engineering,hr"
+    items = [item.strip() for item in raw.split(",") if item.strip()]
+    seen: set[str] = set()
+    domains: list[dict] = []
+    for item in items:
+        if ":" in item:
+            domain_id_raw, label_raw = item.split(":", 1)
+            domain_id = _to_domain_id(domain_id_raw.strip())
+            label = label_raw.strip() or _to_label(domain_id)
+            domain = _make_domain(domain_id)
+            domain["id"] = domain_id
+            domain["label"] = label
+            domain["description"] = f"Knowledge and documents related to {label.lower()}"
+        else:
+            domain = _make_domain(item)
+        if domain["id"] in seen:
+            continue
+        seen.add(domain["id"])
+        domains.append(domain)
+    return domains
+
+
+def _build_domains_from_prompt() -> list[dict]:
+    if not sys.stdin.isatty():
+        return []
+    if os.environ.get("RAG_INTERACTIVE_INIT", "1") == "0":
+        return []
+
+    raw = input(
+        "settings.json не найден. Введите домены через запятую "
+        "(например: engineering, hr, product). Пусто = дефолт: "
+    ).strip()
+    if not raw:
+        return []
+
+    names = [item.strip() for item in raw.split(",") if item.strip()]
+    seen: set[str] = set()
+    domains: list[dict] = []
+    for name in names:
+        domain = _make_domain(name)
+        if domain["id"] in seen:
+            continue
+        seen.add(domain["id"])
+        domains.append(domain)
+    return domains
+
+
+def _default_config() -> dict:
+    domains = _build_domains_from_env()
+    if not domains:
+        domains = _build_domains_from_prompt()
+
+    return {
+        "embedding": DEFAULT_EMBEDDING,
+        "domains": domains,
+        "retrieval": DEFAULT_RETRIEVAL,
+    }
+
+
+def _ensure_config_exists() -> None:
+    if CONFIG_PATH.exists():
+        return
+    CONFIG_PATH.parent.mkdir(parents=True, exist_ok=True)
+    with open(CONFIG_PATH, "w", encoding="utf-8") as f:
+        json.dump(_default_config(), f, indent=2, ensure_ascii=False)
+
 
 def _load() -> dict:
-    with open(CONFIG_PATH) as f:
+    _ensure_config_exists()
+    with open(CONFIG_PATH, encoding="utf-8") as f:
         return json.load(f)
 
 
 def _save(data: dict) -> None:
     CONFIG_PATH.parent.mkdir(parents=True, exist_ok=True)
-    with open(CONFIG_PATH, "w") as f:
+    with open(CONFIG_PATH, "w", encoding="utf-8") as f:
         json.dump(data, f, indent=2, ensure_ascii=False)
 
 
