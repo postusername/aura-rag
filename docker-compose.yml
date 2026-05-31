@@ -13,6 +13,16 @@ services:
       retries: 15
       start_period: 10s
 
+  kaiten-mcp:
+    build: ./kaiten-mcp
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      - KAITEN_TOKEN
+      - KAITEN_DOMAIN
+      - MCP_HTTP_PORT=3000
+
   ollama:
     image: ollama/ollama:latest
     restart: "no"
@@ -31,6 +41,8 @@ services:
     depends_on:
       qdrant:
         condition: service_healthy
+      kaiten-mcp:
+        condition: service_started
     ports:
       - "8080:8080"
     environment:
@@ -39,6 +51,7 @@ services:
       - GOOGLE_API_KEY
       - QDRANT_URL=http://qdrant:6333
       - OLLAMA_URL=http://ollama:11434
+      - KAITEN_MCP_URL=http://kaiten-mcp:3000/sse
     volumes:
       - ./rag-server/config:/app/config
 

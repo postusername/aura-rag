@@ -1,13 +1,8 @@
 {
   "servers": {
     "kaiten": {
-      "type": "stdio",
-      "command": "node",
-      "args": ["${workspaceFolder}/kaiten-mcp/index.js"],
-      "env": {
-        "KAITEN_TOKEN": "${env:KAITEN_TOKEN}",
-        "KAITEN_DOMAIN": "${env:KAITEN_DOMAIN}"
-      }
+      "type": "sse",
+      "url": "http://localhost:3000/sse"
     },
     "rag": {
       "type": "sse",

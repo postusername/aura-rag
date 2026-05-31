@@ -1,16 +1,12 @@
 {
   "mcpServers": {
     "kaiten": {
-      "command": "node",
-      "args": ["./kaiten-mcp/index.js"],
-      "env": {
-        "KAITEN_TOKEN": "${KAITEN_TOKEN}",
-        "KAITEN_DOMAIN": "${KAITEN_DOMAIN}"
-      }
+      "type": "sse",
+      "url": "http://localhost:3000/sse"
     },
     "rag": {
-      "command": "docker",
-      "args": ["exec", "-i", "aura-rag-rag-server-1", "python", "/app/src/main.py", "--stdio"]
+      "type": "sse",
+      "url": "http://localhost:8080/sse"
     }
   }
 }
