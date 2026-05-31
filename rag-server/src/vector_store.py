@@ -4,17 +4,19 @@ import uuid
 from qdrant_client import AsyncQdrantClient
 from qdrant_client.models import (
     Distance,
-    FieldCondition,
-    Filter,
-    MatchValue,
     PointStruct,
     VectorParams,
 )
 
+_client: AsyncQdrantClient | None = None
 
-def _client() -> AsyncQdrantClient:
-    url = os.environ.get("QDRANT_URL", "http://localhost:6333")
-    return AsyncQdrantClient(url=url)
+
+def _get_client() -> AsyncQdrantClient:
+    global _client
+    if _client is None:
+        url = os.environ.get("QDRANT_URL", "http://localhost:6333")
+        _client = AsyncQdrantClient(url=url)
+    return _client
 
 
 def _collection_name(domain_id: str) -> str:
@@ -22,30 +24,29 @@ def _collection_name(domain_id: str) -> str:
 
 
 async def ensure_collection(domain_id: str, dimensions: int) -> None:
-    async with _client() as client:
-        name = _collection_name(domain_id)
-        existing = [c.name for c in (await client.get_collections()).collections]
-        if name not in existing:
-            await client.create_collection(
-                collection_name=name,
-                vectors_config=VectorParams(size=dimensions, distance=Distance.COSINE),
-            )
+    client = _get_client()
+    name = _collection_name(domain_id)
+    existing = [c.name for c in (await client.get_collections()).collections]
+    if name not in existing:
+        await client.create_collection(
+            collection_name=name,
+            vectors_config=VectorParams(size=dimensions, distance=Distance.COSINE),
+        )
 
 
 async def upsert_points(domain_id: str, points: list[dict]) -> int:
-    """points: list of {id?, vector, payload}. Returns count upserted."""
-    async with _client() as client:
-        name = _collection_name(domain_id)
-        qdrant_points = [
-            PointStruct(
-                id=p.get("id") or str(uuid.uuid4()),
-                vector=p["vector"],
-                payload=p.get("payload", {}),
-            )
-            for p in points
-        ]
-        await client.upsert(collection_name=name, points=qdrant_points)
-        return len(qdrant_points)
+    client = _get_client()
+    name = _collection_name(domain_id)
+    qdrant_points = [
+        PointStruct(
+            id=p.get("id") or str(uuid.uuid4()),
+            vector=p["vector"],
+            payload=p.get("payload", {}),
+        )
+        for p in points
+    ]
+    await client.upsert(collection_name=name, points=qdrant_points)
+    return len(qdrant_points)
 
 
 async def search(
@@ -54,15 +55,15 @@ async def search(
     limit: int = 5,
     score_threshold: float = 0.5,
 ) -> list[dict]:
-    async with _client() as client:
-        name = _collection_name(domain_id)
-        results = await client.search(
-            collection_name=name,
-            query_vector=query_vector,
-            limit=limit,
-            score_threshold=score_threshold,
-            with_payload=True,
-        )
+    client = _get_client()
+    name = _collection_name(domain_id)
+    results = await client.search(
+        collection_name=name,
+        query_vector=query_vector,
+        limit=limit,
+        score_threshold=score_threshold,
+        with_payload=True,
+    )
     return [
         {
             "id": str(r.id),
@@ -97,23 +98,23 @@ async def search_all_domains(
 
 
 async def delete_collection(domain_id: str) -> bool:
-    async with _client() as client:
-        name = _collection_name(domain_id)
-        try:
-            await client.delete_collection(collection_name=name)
-            return True
-        except Exception:
-            return False
+    client = _get_client()
+    name = _collection_name(domain_id)
+    try:
+        await client.delete_collection(collection_name=name)
+        return True
+    except Exception:
+        return False
 
 
 async def get_collection_count(domain_id: str) -> int:
-    async with _client() as client:
-        name = _collection_name(domain_id)
-        try:
-            info = await client.get_collection(collection_name=name)
-            return info.points_count or 0
-        except Exception:
-            return 0
+    client = _get_client()
+    name = _collection_name(domain_id)
+    try:
+        info = await client.get_collection(collection_name=name)
+        return info.points_count or 0
+    except Exception:
+        return 0
 
 
 async def clear_collection(domain_id: str, dimensions: int) -> None:
