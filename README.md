@@ -48,14 +48,14 @@ bash scripts/setup.sh
 
 ## AI Tool Setup
 
-### Claude Code (auto)
+### <img height="64" src="https://unpkg.com/@lobehub/icons-static-svg@latest/icons/claudecode-color.svg" /> Claude Code (auto)
 The `.mcp.json` in the project root is auto-loaded. Run:
 ```bash
 bash scripts/setup.sh  # installs skills to ~/.claude/skills/
 ```
 Skills available: `/rag-query`, `/rag-sync`, `/rag-manage`
 
-### Cursor (auto)
+### <img height="64" src="https://unpkg.com/@lobehub/icons-static-svg@latest/icons/cursor.svg" /> Cursor (auto)
 The `.cursor/mcp.json` in the project root is auto-loaded when you open the project.
 
 To add skill-like rules:
@@ -63,7 +63,7 @@ To add skill-like rules:
 cp configs/cursor-rules/* .cursor/rules/
 ```
 
-### VS Code / GitHub Copilot (auto)
+### <img height="64" src="https://unpkg.com/@lobehub/icons-static-svg@latest/icons/githubcopilot.svg" /> VS Code / GitHub Copilot (auto)
 The `.vscode/mcp.json` is auto-loaded at workspace open. All RAG tools appear in the Copilot tool picker.
 
 To add copilot instructions:
@@ -71,13 +71,13 @@ To add copilot instructions:
 cat configs/copilot-instructions.md >> .github/copilot-instructions.md
 ```
 
-### Qwen Coder
+### <img height="64" src="https://unpkg.com/@lobehub/icons-static-svg@latest/icons/qwen-color.svg" /> Qwen Coder
 Uses VS Code's MCP — see [configs/qwen.md](configs/qwen.md).
 
-### OpenAI Codex CLI
+### <img height="64" src="https://unpkg.com/@lobehub/icons-static-svg@latest/icons/codex-color.svg" /> OpenAI Codex CLI
 See [configs/codex.md](configs/codex.md) for options.
 
-### JetBrains IDEs
+### <img src="https://plugins.jetbrains.com/docs/intellij/images/intellij-platform-icon.svg" height="20" alt="" /> JetBrains IDEs
 See [configs/jetbrains.md](configs/jetbrains.md) for manual setup instructions.
 
 ## Managing Knowledge Domains
