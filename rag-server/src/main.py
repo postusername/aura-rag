@@ -1,10 +1,12 @@
 import asyncio
 import logging
 import os
+import sys
 
 import mcp.types as types
 from mcp.server import Server
 from mcp.server.sse import SseServerTransport
+from mcp.server.stdio import stdio_server
 from starlette.applications import Starlette
 from starlette.routing import Mount, Route
 import uvicorn
@@ -351,8 +353,17 @@ def create_app() -> Starlette:
     )
 
 
+async def _run_stdio():
+    log.info("Starting Aura RAG MCP server (stdio mode)")
+    async with stdio_server() as (read_stream, write_stream):
+        await server.run(read_stream, write_stream, server.create_initialization_options())
+
+
 if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 8080))
-    log.info(f"Starting Aura RAG MCP server on :{port}")
-    app = create_app()
-    uvicorn.run(app, host="0.0.0.0", port=port)
+    if "--stdio" in sys.argv:
+        asyncio.run(_run_stdio())
+    else:
+        port = int(os.environ.get("PORT", 8080))
+        log.info(f"Starting Aura RAG MCP server on :{port} (SSE mode)")
+        app = create_app()
+        uvicorn.run(app, host="0.0.0.0", port=port)

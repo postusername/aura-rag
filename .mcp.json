@@ -9,7 +9,8 @@
       }
     },
     "rag": {
-      "url": "http://localhost:8080/sse"
+      "command": "docker",
+      "args": ["exec", "-i", "aura-rag-rag-server-1", "python", "/app/src/main.py", "--stdio"]
     }
   }
 }
