@@ -1,0 +1,6 @@
+mcp[cli]>=1.9.0
+qdrant-client>=1.14.0
+httpx>=0.28.0
+pydantic>=2.0.0
+starlette>=0.46.0
+uvicorn>=0.34.0

@@ -1,0 +1,13 @@
+---
+description: Sync the knowledge base from Kaiten. Use when the user says sync, re-index, update knowledge base, or when queries return no results.
+globs:
+alwaysApply: false
+---
+
+# RAG Sync
+
+When the user wants to refresh the knowledge base:
+
+1. Ask which domain (or all). Show options with `rag_list_domains`.
+2. Call `rag_sync(domain?, force?)`. Use `force: true` for full re-index.
+3. Report chunks indexed and domains updated.

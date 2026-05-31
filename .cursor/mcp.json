@@ -1,0 +1,16 @@
+{
+  "servers": {
+    "kaiten": {
+      "command": "node",
+      "args": ["./kaiten-mcp/index.js"],
+      "env": {
+        "KAITEN_TOKEN": "${KAITEN_TOKEN}",
+        "KAITEN_DOMAIN": "${KAITEN_DOMAIN}"
+      }
+    },
+    "rag": {
+      "type": "sse",
+      "url": "http://localhost:8080/sse"
+    }
+  }
+}

@@ -1,0 +1,3 @@
+[submodule "kaiten-mcp"]
+	path = kaiten-mcp
+	url = https://github.com/postusername/kaiten-mcp.git

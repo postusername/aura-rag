@@ -1,0 +1,14 @@
+---
+description: Search the company knowledge base in Kaiten to answer internal questions about processes, technical decisions, HR policies, or any organizational topic. Triggers when the user asks about internal docs or company-specific knowledge.
+globs:
+alwaysApply: false
+---
+
+# RAG Query — Company Knowledge Base
+
+When the user asks about internal knowledge, company processes, or "what do our docs say":
+
+1. Call `rag_query` MCP tool with the user's question.
+2. The tool auto-classifies the domain and returns `context` (formatted markdown) and `results` (list with titles/scores).
+3. Answer using the retrieved context. Cite sources by title.
+4. If `results` is empty, suggest running a sync (call `rag_sync` tool or tell the user to use `/rag-sync` in Claude Code).

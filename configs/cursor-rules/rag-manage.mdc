@@ -1,0 +1,20 @@
+---
+description: Manage RAG system configuration — add/remove/update domains, change embedding model or provider. Use when the user asks to configure the knowledge base system.
+globs:
+alwaysApply: false
+---
+
+# RAG Manage
+
+**Add domain**: `rag_add_domain(id, label, description, space_ids?, document_group_ids?, card_board_ids?)` → remind user to sync.
+
+**Update domain**: `rag_update_domain(id, ...fields)` → remind user to re-sync.
+
+**Remove domain**: confirm with user → `rag_remove_domain(id)`.
+
+**Change embedding**:
+1. `rag_get_embedding_config()` — show current
+2. `rag_set_embedding_provider(provider, model)` — switch
+3. Warn: must run `rag_sync(force=true)` to re-embed all docs
+
+**Status**: `rag_embedding_status()` + `rag_list_domains()`
