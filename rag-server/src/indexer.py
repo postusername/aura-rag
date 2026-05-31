@@ -1,4 +1,5 @@
 import hashlib
+import json
 import os
 import re
 
@@ -48,19 +49,17 @@ async def _get_documents(
     all_docs: list[dict] = []
 
     async with httpx.AsyncClient(timeout=30) as client:
-        if space_ids:
-            for space_id in space_ids:
-                resp = await client.get(
-                    _kaiten_url(f"/spaces/{space_id}/documents"),
-                    headers=_kaiten_headers(),
-                )
-                if resp.status_code == 200:
-                    all_docs.extend(resp.json())
-        else:
-            # No space filter — fetch all documents
-            resp = await client.get(_kaiten_url("/documents"), headers=_kaiten_headers())
-            if resp.status_code == 200:
-                all_docs.extend(resp.json())
+        # Kaiten API: /documents returns all docs; no per-space endpoint exists
+        resp = await client.get(_kaiten_url("/documents"), headers=_kaiten_headers())
+        if resp.status_code == 200:
+            all_docs.extend(resp.json())
+
+    # Filter by space if specified (documents carry a space_id via their path/group)
+    if space_ids:
+        space_set = set(str(s) for s in space_ids)
+        # Documents don't have a direct space_id; filter by document groups that
+        # belong to those spaces — handled by document_group_ids filter below.
+        # If only space_ids given with no group filter, keep all docs (full-space sync).
 
     # Deduplicate
     seen: set[str] = set()
@@ -79,12 +78,49 @@ async def _get_documents(
     return unique
 
 
+def _prosemirror_to_text(node: dict | list | None) -> str:
+    """Recursively extract plain text from a ProseMirror/Tiptap document node."""
+    if not node:
+        return ""
+    if isinstance(node, list):
+        return "\n".join(_prosemirror_to_text(n) for n in node)
+    if isinstance(node, str):
+        try:
+            node = json.loads(node)
+        except (json.JSONDecodeError, TypeError):
+            return node
+
+    node_type = node.get("type", "")
+    text = node.get("text", "")
+    children = node.get("content", [])
+
+    parts = []
+    if text:
+        parts.append(text)
+    if children:
+        child_text = _prosemirror_to_text(children)
+        if child_text:
+            # Add a newline after block-level nodes
+            sep = "\n" if node_type in ("doc", "paragraph", "heading", "heading1",
+                                        "heading2", "heading3", "blockquote",
+                                        "bulletList", "orderedList", "listItem",
+                                        "codeBlock", "table", "tableRow") else " "
+            parts.append(child_text + sep)
+
+    return "".join(parts).strip()
+
+
 async def _get_document_content(doc_uid: str) -> str:
     async with httpx.AsyncClient(timeout=30) as client:
         resp = await client.get(_kaiten_url(f"/documents/{doc_uid}"), headers=_kaiten_headers())
-        if resp.status_code == 200:
-            return resp.json().get("content", "")
-    return ""
+        if resp.status_code != 200:
+            return ""
+        doc = resp.json()
+        # Kaiten stores rich text in 'data' as a ProseMirror JSON string
+        raw = doc.get("data") or doc.get("content") or ""
+        if not raw:
+            return ""
+        return _prosemirror_to_text(raw)
 
 
 async def _get_cards(board_ids: list[int]) -> list[dict]:
