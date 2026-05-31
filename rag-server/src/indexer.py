@@ -1,7 +1,6 @@
 import hashlib
 import os
 import re
-from typing import AsyncIterator
 
 import httpx
 
@@ -41,8 +40,13 @@ def _chunk_text(text: str, size: int = 1500, overlap: int = 200) -> list[str]:
     return chunks
 
 
-async def _get_all_documents(space_ids: list[int], group_ids: list[int]) -> list[dict]:
-    docs = []
+async def _get_documents(
+    space_ids: list[int],
+    document_group_ids: list[str],
+) -> list[dict]:
+    """Fetch all documents, optionally scoped to spaces and filtered by group UIDs."""
+    all_docs: list[dict] = []
+
     async with httpx.AsyncClient(timeout=30) as client:
         if space_ids:
             for space_id in space_ids:
@@ -51,38 +55,40 @@ async def _get_all_documents(space_ids: list[int], group_ids: list[int]) -> list
                     headers=_kaiten_headers(),
                 )
                 if resp.status_code == 200:
-                    docs.extend(resp.json())
-        if group_ids:
-            for group_id in group_ids:
-                resp = await client.get(
-                    _kaiten_url(f"/document-groups/{group_id}/documents"),
-                    headers=_kaiten_headers(),
-                )
-                if resp.status_code == 200:
-                    docs.extend(resp.json())
-        if not space_ids and not group_ids:
+                    all_docs.extend(resp.json())
+        else:
+            # No space filter — fetch all documents
             resp = await client.get(_kaiten_url("/documents"), headers=_kaiten_headers())
             if resp.status_code == 200:
-                docs.extend(resp.json())
-    seen = set()
-    unique = []
-    for d in docs:
-        if d["id"] not in seen:
-            seen.add(d["id"])
+                all_docs.extend(resp.json())
+
+    # Deduplicate
+    seen: set[str] = set()
+    unique: list[dict] = []
+    for d in all_docs:
+        uid = d.get("uid") or d.get("id")
+        if uid and uid not in seen:
+            seen.add(uid)
             unique.append(d)
+
+    # Filter by document group if specified (group_id is a UUID string)
+    if document_group_ids:
+        group_set = set(document_group_ids)
+        unique = [d for d in unique if d.get("group_id") in group_set]
+
     return unique
 
 
-async def _get_document_content(doc_id: int) -> str:
+async def _get_document_content(doc_uid: str) -> str:
     async with httpx.AsyncClient(timeout=30) as client:
-        resp = await client.get(_kaiten_url(f"/documents/{doc_id}"), headers=_kaiten_headers())
+        resp = await client.get(_kaiten_url(f"/documents/{doc_uid}"), headers=_kaiten_headers())
         if resp.status_code == 200:
             return resp.json().get("content", "")
     return ""
 
 
 async def _get_cards(board_ids: list[int]) -> list[dict]:
-    cards = []
+    cards: list[dict] = []
     async with httpx.AsyncClient(timeout=30) as client:
         if board_ids:
             for board_id in board_ids:
@@ -105,24 +111,25 @@ async def build_points(
     chunk_size: int = 1500,
     chunk_overlap: int = 200,
 ) -> list[dict]:
-    """Fetch Kaiten docs + cards, chunk, embed, return Qdrant point dicts."""
+    """Fetch Kaiten docs + cards for a domain, chunk, embed, return Qdrant point dicts."""
     kaiten_cfg = domain["kaiten"]
-    points = []
+    space_ids: list[int] = kaiten_cfg.get("space_ids", [])
+    group_ids: list[str] = kaiten_cfg.get("document_group_ids", [])
+    board_ids: list[int] = kaiten_cfg.get("card_board_ids", [])
+    points: list[dict] = []
 
-    docs = await _get_all_documents(
-        kaiten_cfg.get("space_ids", []),
-        kaiten_cfg.get("document_group_ids", []),
-    )
+    docs = await _get_documents(space_ids, group_ids)
 
     for doc in docs:
-        content = await _get_document_content(doc["id"])
+        doc_uid = doc.get("uid") or doc.get("id")
+        content = await _get_document_content(doc_uid)
         if not content.strip():
             continue
-        title = doc.get("title", f"Document {doc['id']}")
+        title = doc.get("title", f"Document {doc_uid}")
         for chunk in _chunk_text(content, chunk_size, chunk_overlap):
             task = "code" if _is_code_chunk(chunk) else "document"
             vector = await embedder.embed(chunk, task)
-            chunk_id = hashlib.md5(f"doc:{doc['id']}:{chunk[:50]}".encode()).hexdigest()
+            chunk_id = hashlib.md5(f"doc:{doc_uid}:{chunk[:50]}".encode()).hexdigest()
             points.append(
                 {
                     "id": chunk_id,
@@ -130,14 +137,14 @@ async def build_points(
                     "payload": {
                         "title": title,
                         "source": "document",
-                        "kaiten_id": doc["id"],
+                        "kaiten_id": doc_uid,
                         "text": chunk,
                         "url": doc.get("url", ""),
                     },
                 }
             )
 
-    cards = await _get_cards(kaiten_cfg.get("card_board_ids", []))
+    cards = await _get_cards(board_ids)
     for card in cards:
         description = card.get("description", "") or ""
         title = card.get("title", f"Card {card['id']}")
@@ -154,7 +161,7 @@ async def build_points(
                 "payload": {
                     "title": title,
                     "source": "card",
-                    "kaiten_id": card["id"],
+                    "kaiten_id": str(card["id"]),
                     "text": text[:1500],
                     "url": card.get("url", ""),
                 },
