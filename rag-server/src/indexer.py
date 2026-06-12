@@ -109,7 +109,10 @@ async def build_points(
             full = await _call(session, "kaiten_get_document", document_id=uid)
             if not full:
                 continue
-            content = _prosemirror_to_text(full.get("data") or full.get("content") or "")
+            if isinstance(full, str):
+                content = _prosemirror_to_text(full)
+            else:
+                content = _prosemirror_to_text(full.get("data") or full.get("content") or "")
             if not content.strip():
                 continue
             title = doc.get("title", f"Document {uid}")
